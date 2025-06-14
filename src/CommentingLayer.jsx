@@ -36,12 +36,20 @@ const commentService = {
   },
   
   async updateComment(id, updates) {
+    // Ensure x and y are numbers if they're being updated
+    if (updates.x !== undefined) updates.x = Number(updates.x);
+    if (updates.y !== undefined) updates.y = Number(updates.y);
+    
     const { data, error } = await supabase
       .from('commenting')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
+    
+    if (error) {
+      console.error('Supabase update error:', error);
+    }
     
     return { data, error };
   },
@@ -313,6 +321,7 @@ export default function CommentingLayer() {
   const [pendingComment, setPendingComment] = useState(null);
   const [expandedComment, setExpandedComment] = useState(null);
   const [currentUser, setCurrentUser] = useState('');
+  const [prototypeUrl, setPrototypeUrl] = useState('https://bi-directional-v3.vercel.app/');
   const containerRef = useRef(null);
 
   // Get or set user name
@@ -334,11 +343,16 @@ export default function CommentingLayer() {
         return;
       }
       if (data) {
-        setComments(data);
+        // Filter comments for this specific prototype
+        const prototypeComments = data.filter(comment => 
+          comment.prototype === prototypeUrl || 
+          (!comment.prototype && prototypeUrl === 'https://bi-directional-v3.vercel.app/') // Fallback for existing comments
+        );
+        setComments(prototypeComments);
       }
     };
     loadComments();
-  }, []);
+  }, [prototypeUrl]);
 
   const handleCanvasClick = (e) => {
     if (!commentMode) return;
@@ -368,7 +382,7 @@ export default function CommentingLayer() {
       author: currentUser,
       x: pendingComment.x,
       y: pendingComment.y,
-      prototype: 'comment-layer' // You can change this or make it dynamic
+      prototype: prototypeUrl // Store which prototype this comment belongs to
     };
     
     const { data, error } = await commentService.addComment(newComment);
@@ -421,46 +435,32 @@ export default function CommentingLayer() {
 
   return (
     <div className="relative w-full h-screen bg-gray-50">
-      {/* Demo content area */}
+      {/* URL Input Bar */}
+      <div className="fixed top-4 left-4 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-40 max-w-md">
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          Prototype URL:
+        </label>
+        <input
+          type="url"
+          value={prototypeUrl}
+          onChange={(e) => setPrototypeUrl(e.target.value)}
+          placeholder="Enter prototype URL..."
+          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+        />
+      </div>
+
+      {/* Prototype iframe */}
       <div 
         ref={containerRef}
         className={`w-full h-full relative commenting-container ${commentMode ? 'cursor-crosshair' : 'cursor-default'}`}
         onClick={handleCanvasClick}
       >
-        {/* Demo content */}
-        <div className="p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Demo Prototype</h1>
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-3">Sample Content</h2>
-            <p className="text-gray-600 mb-4">
-              This is a demo prototype. Toggle comment mode and click anywhere to leave comments!
-              The commenting system works like Figma - you can drag pins around, expand comments,
-              and edit/delete your own comments.
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-100 p-4 rounded">
-                <h3 className="font-medium">Feature A</h3>
-                <p className="text-sm text-gray-600">Click here to comment on this feature</p>
-              </div>
-              <div className="bg-green-100 p-4 rounded">
-                <h3 className="font-medium">Feature B</h3>
-                <p className="text-sm text-gray-600">Or comment on this section</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-3">Instructions</h2>
-            <ol className="list-decimal list-inside space-y-2 text-gray-600">
-              <li>Click "Comment Mode" to enable commenting</li>
-              <li>Click anywhere on the canvas to place a comment pin</li>
-              <li>Click on pins to expand/collapse comments</li>
-              <li>Drag pins to reposition them</li>
-              <li>Edit or delete your own comments</li>
-              <li>Toggle visibility to show/hide all comments</li>
-            </ol>
-          </div>
-        </div>
+        <iframe
+          src={prototypeUrl}
+          className="w-full h-full border-0"
+          title="Prototype"
+          style={{ pointerEvents: commentMode ? 'none' : 'auto' }}
+        />
 
         {/* Comment pins */}
         {showComments && comments.map(comment => (
