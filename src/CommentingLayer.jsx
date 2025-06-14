@@ -1,40 +1,58 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageCircle, Eye, EyeOff, Edit3, Trash2, Send, X } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
-// Mock Supabase client - this will work in VS Code/localhost
-const mockSupabase = {
-  getComments() {
-    const comments = localStorage.getItem('comments');
-    return Promise.resolve({ 
-      data: comments ? JSON.parse(comments) : [], 
-      error: null 
-    });
+// Supabase configuration
+const supabaseUrl = 'https://gadpqoxttsdfohhphrvu.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhZHBxb3h0dHNkZm9oaHBocnZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzMjU4MTMsImV4cCI6MjA2NDkwMTgxM30.xZaGTzsqCqYAySE_d3bH5TFWuTEYev99Jiewlyr08U8';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Database functions
+const commentService = {
+  async getComments() {
+    const { data, error } = await supabase
+      .from('commenting')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    return { data, error };
   },
   
-  addComment(comment) {
-    const comments = JSON.parse(localStorage.getItem('comments') || '[]');
-    const newComment = { ...comment, id: Date.now().toString() };
-    comments.push(newComment);
-    localStorage.setItem('comments', JSON.stringify(comments));
-    return Promise.resolve({ data: newComment, error: null });
+  async addComment(comment) {
+    const { data, error } = await supabase
+      .from('commenting')
+      .insert([{
+        text: comment.text,
+        author: comment.author,
+        x: comment.x,
+        y: comment.y,
+        prototype: comment.prototype || null
+      }])
+      .select()
+      .single();
+    
+    return { data, error };
   },
   
-  updateComment(id, updates) {
-    const comments = JSON.parse(localStorage.getItem('comments') || '[]');
-    const index = comments.findIndex(c => c.id === id);
-    if (index !== -1) {
-      comments[index] = { ...comments[index], ...updates };
-      localStorage.setItem('comments', JSON.stringify(comments));
-      return Promise.resolve({ data: comments[index], error: null });
-    }
-    return Promise.resolve({ data: null, error: 'Comment not found' });
+  async updateComment(id, updates) {
+    const { data, error } = await supabase
+      .from('commenting')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    return { data, error };
   },
   
-  deleteComment(id) {
-    const comments = JSON.parse(localStorage.getItem('comments') || '[]');
-    const filtered = comments.filter(c => c.id !== id);
-    localStorage.setItem('comments', JSON.stringify(filtered));
-    return Promise.resolve({ data: null, error: null });
+  async deleteComment(id) {
+    const { data, error } = await supabase
+      .from('commenting')
+      .delete()
+      .eq('id', id);
+    
+    return { data, error };
   }
 };
 
@@ -50,19 +68,20 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
-    const rect = e.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
+    
+    // Get position relative to the container, not the pin
+    const containerRect = document.querySelector('.commenting-container').getBoundingClientRect();
     setDragOffset({
-      x: e.clientX - centerX,
-      y: e.clientY - centerY
+      x: e.clientX - containerRect.left - comment.x,
+      y: e.clientY - containerRect.top - comment.y
     });
   };
 
   const handleMouseMove = useCallback((e) => {
     if (isDragging) {
-      const newX = e.clientX - dragOffset.x;
-      const newY = e.clientY - dragOffset.y;
+      const containerRect = document.querySelector('.commenting-container').getBoundingClientRect();
+      const newX = e.clientX - containerRect.left - dragOffset.x;
+      const newY = e.clientY - containerRect.top - dragOffset.y;
       onUpdatePosition(comment.id, { x: newX, y: newY });
     }
   }, [isDragging, dragOffset.x, dragOffset.y, comment.id, onUpdatePosition]);
@@ -188,7 +207,7 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
           )}
           
           <div className="text-xs text-gray-500 mt-2">
-            {new Date(comment.createdAt).toLocaleString()}
+            {new Date(comment.created_at).toLocaleString()}
           </div>
         </div>
       )}
@@ -309,7 +328,11 @@ export default function CommentingLayer() {
   // Load comments on mount
   useEffect(() => {
     const loadComments = async () => {
-      const { data } = await mockSupabase.getComments();
+      const { data, error } = await commentService.getComments();
+      if (error) {
+        console.error('Error loading comments:', error);
+        return;
+      }
       if (data) {
         setComments(data);
       }
@@ -345,10 +368,14 @@ export default function CommentingLayer() {
       author: currentUser,
       x: pendingComment.x,
       y: pendingComment.y,
-      createdAt: new Date().toISOString()
+      prototype: 'comment-layer' // You can change this or make it dynamic
     };
     
-    const { data } = await mockSupabase.addComment(newComment);
+    const { data, error } = await commentService.addComment(newComment);
+    if (error) {
+      console.error('Error adding comment:', error);
+      return;
+    }
     if (data) {
       setComments(prev => [...prev, data]);
     }
@@ -357,20 +384,32 @@ export default function CommentingLayer() {
   };
 
   const handleUpdateComment = async (id, newText) => {
-    const { data } = await mockSupabase.updateComment(id, { text: newText });
+    const { data, error } = await commentService.updateComment(id, { text: newText });
+    if (error) {
+      console.error('Error updating comment:', error);
+      return;
+    }
     if (data) {
       setComments(prev => prev.map(c => c.id === id ? data : c));
     }
   };
 
   const handleDeleteComment = async (id) => {
-    await mockSupabase.deleteComment(id);
+    const { data, error } = await commentService.deleteComment(id);
+    if (error) {
+      console.error('Error deleting comment:', error);
+      return;
+    }
     setComments(prev => prev.filter(c => c.id !== id));
     setExpandedComment(null);
   };
 
   const handleUpdatePosition = async (id, position) => {
-    const { data } = await mockSupabase.updateComment(id, position);
+    const { data, error } = await commentService.updateComment(id, position);
+    if (error) {
+      console.error('Error updating position:', error);
+      return;
+    }
     if (data) {
       setComments(prev => prev.map(c => c.id === id ? data : c));
     }
@@ -385,7 +424,7 @@ export default function CommentingLayer() {
       {/* Demo content area */}
       <div 
         ref={containerRef}
-        className={`w-full h-full relative ${commentMode ? 'cursor-crosshair' : 'cursor-default'}`}
+        className={`w-full h-full relative commenting-container ${commentMode ? 'cursor-crosshair' : 'cursor-default'}`}
         onClick={handleCanvasClick}
       >
         {/* Demo content */}
