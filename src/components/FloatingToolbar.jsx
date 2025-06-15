@@ -17,7 +17,6 @@ const FloatingToolbar = ({ commentMode, onToggleCommentMode, commentCount }) => 
         }}
       >
         <ChatCircle size={18} />
-        <span>Comment Mode</span>
         {commentCount > 0 && (
           <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
             commentMode 
