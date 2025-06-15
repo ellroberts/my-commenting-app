@@ -36,3 +36,21 @@
     transform: rotate(360deg);
   }
 }
+
+.comment-mode-cursor {
+  cursor: none !important;
+}
+
+.comment-mode-cursor::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  width: 20px;
+  height: 20px;
+  background-color: #A34696;
+  border: 1px solid #8B3A7A;
+  border-radius: 50% 50% 50% 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  box-shadow: 0 2px 8px rgba(163, 70, 150, 0.3);
+}
