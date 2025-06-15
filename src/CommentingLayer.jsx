@@ -73,16 +73,68 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
   const handleMouseDown = (e) => {
     if (e.target.closest('.comment-bubble')) return;
     
+    console.log('Pin mousedown detected'); // DEBUG
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
     
-    // Get position relative to the container, not the pin
-    const containerRect = document.querySelector('.commenting-container').getBoundingClientRect();
-    setDragOffset({
-      x: e.clientX - containerRect.left - comment.x,
-      y: e.clientY - containerRect.top - comment.y
-    });
+    const startTime = Date.now();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let hasMoved = false;
+    
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = Math.abs(moveEvent.clientX - startX);
+      const deltaY = Math.abs(moveEvent.clientY - startY);
+      
+      // If mouse moved more than 3px, start dragging
+      if (deltaX > 3 || deltaY > 3) {
+        hasMoved = true;
+        console.log('Starting drag mode'); // DEBUG
+        setIsDragging(true);
+        
+        // Add overlay to prevent iframe interference
+        const overlay = document.createElement('div');
+        overlay.id = 'drag-overlay';
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 9999;
+          cursor: grabbing;
+          background: transparent;
+        `;
+        document.body.appendChild(overlay);
+        
+        // Get position relative to the container
+        const containerRect = document.querySelector('.commenting-container').getBoundingClientRect();
+        setDragOffset({
+          x: moveEvent.clientX - containerRect.left - comment.x,
+          y: moveEvent.clientY - containerRect.top - comment.y
+        });
+        
+        // Remove this temporary listener
+        document.removeEventListener('mousemove', handleMouseMove);
+      }
+    };
+    
+    const handleMouseUp = (upEvent) => {
+      console.log('Mouse up - hasMoved:', hasMoved); // DEBUG
+      
+      // If it was a click without movement, expand the comment
+      if (!hasMoved) {
+        console.log('Treating as click - expanding comment'); // DEBUG
+        onToggleExpand(comment.id);
+      }
+      
+      // Clean up listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
 
   const handleMouseMove = useCallback((e) => {
@@ -96,6 +148,12 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
+    
+    // Remove the overlay
+    const overlay = document.getElementById('drag-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
   }, []);
 
   useEffect(() => {
@@ -134,13 +192,7 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
         className={`w-6 h-6 bg-blue-500 border-2 border-white rounded-full shadow-lg hover:bg-blue-600 transition-colors ${
           isExpanded ? 'ring-2 ring-blue-300' : ''
         } ${isDragging ? 'cursor-grabbing scale-110' : 'cursor-grab hover:scale-105'}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!isDragging) {
-            onToggleExpand(comment.id);
-          }
-        }}
-        title="Drag to move, click to expand"
+        title="Click to expand, drag to move"
       >
         <div className="w-full h-full flex items-center justify-center">
           <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -321,8 +373,10 @@ export default function CommentingLayer() {
   const [pendingComment, setPendingComment] = useState(null);
   const [expandedComment, setExpandedComment] = useState(null);
   const [currentUser, setCurrentUser] = useState('');
-  const [prototypeUrl, setPrototypeUrl] = useState('https://bi-directional-v3.vercel.app/');
   const containerRef = useRef(null);
+
+  // Hardcoded prototype URL - change this for different prototypes
+  const PROTOTYPE_URL = 'https://bi-directional-v3.vercel.app/';
 
   // Get or set user name
   useEffect(() => {
@@ -345,14 +399,13 @@ export default function CommentingLayer() {
       if (data) {
         // Filter comments for this specific prototype
         const prototypeComments = data.filter(comment => 
-          comment.prototype === prototypeUrl || 
-          (!comment.prototype && prototypeUrl === 'https://bi-directional-v3.vercel.app/') // Fallback for existing comments
+          comment.prototype === PROTOTYPE_URL
         );
         setComments(prototypeComments);
       }
     };
     loadComments();
-  }, [prototypeUrl]);
+  }, []);
 
   const handleCanvasClick = (e) => {
     if (!commentMode) return;
@@ -382,7 +435,7 @@ export default function CommentingLayer() {
       author: currentUser,
       x: pendingComment.x,
       y: pendingComment.y,
-      prototype: prototypeUrl // Store which prototype this comment belongs to
+      prototype: PROTOTYPE_URL // Store which prototype this comment belongs to
     };
     
     const { data, error } = await commentService.addComment(newComment);
@@ -435,20 +488,6 @@ export default function CommentingLayer() {
 
   return (
     <div className="relative w-full h-screen bg-gray-50">
-      {/* URL Input Bar */}
-      <div className="fixed top-4 left-4 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-40 max-w-md">
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Prototype URL:
-        </label>
-        <input
-          type="url"
-          value={prototypeUrl}
-          onChange={(e) => setPrototypeUrl(e.target.value)}
-          placeholder="Enter prototype URL..."
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-        />
-      </div>
-
       {/* Prototype iframe */}
       <div 
         ref={containerRef}
@@ -456,7 +495,7 @@ export default function CommentingLayer() {
         onClick={handleCanvasClick}
       >
         <iframe
-          src={prototypeUrl}
+          src={PROTOTYPE_URL}
           className="w-full h-full border-0"
           title="Prototype"
           style={{ pointerEvents: commentMode ? 'none' : 'auto' }}
