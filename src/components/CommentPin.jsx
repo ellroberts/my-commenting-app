@@ -1,6 +1,6 @@
 // src/components/CommentPin.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Edit3, Trash2, X } from 'lucide-react';
+import { PencilSimple, Trash, X } from 'phosphor-react';
 import { positionUtils } from '../utils/positionUtils';
 import { getUserColor, getUserInitials } from '../utils/userColors';
 
@@ -264,14 +264,14 @@ const CommentPin = ({
                     className="p-1 hover:bg-gray-100 rounded"
                     title="Edit comment"
                   >
-                    <Edit3 size={12} />
+                    <PencilSimple size={14} />
                   </button>
                   <button 
                     onClick={() => onDelete(comment.id)}
                     className="p-1 hover:bg-gray-100 rounded text-red-600"
                     title="Delete comment"
                   >
-                    <Trash2 size={12} />
+                    <Trash size={14} />
                   </button>
                 </>
               )}
@@ -280,7 +280,7 @@ const CommentPin = ({
                 className="p-1 hover:bg-gray-100 rounded"
                 title="Close comment"
               >
-                <X size={12} />
+                <X size={14} />
               </button>
             </div>
           </div>

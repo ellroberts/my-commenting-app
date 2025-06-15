@@ -1,6 +1,6 @@
 // src/components/UserNameModal.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { User, X } from 'lucide-react';
+import { User, X } from 'phosphor-react';
 
 // Generate random user names
 const generateRandomName = () => {
@@ -81,13 +81,13 @@ export default function UserNameModal({ isOpen, onSubmit, onCancel }) {
           onClick={handleCancel}
           className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
         >
-          <X className="w-4 h-4" />
+          <X size={16} />
         </button>
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 text-center">
           <div className="mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: '#E8C5E3' }}>
-            <User className="w-6 h-6" style={{ color: '#A34696' }} />
+            <User size={24} style={{ color: '#A34696' }} />
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Comment Mode
@@ -142,7 +142,7 @@ export default function UserNameModal({ isOpen, onSubmit, onCancel }) {
         {/* Footer hint */}
         <div className="px-6 pb-4">
           <p className="text-xs text-gray-500 text-center">
-            ...
+            This helps identify your comments and feedback
           </p>
         </div>
       </div>

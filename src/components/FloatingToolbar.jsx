@@ -1,6 +1,6 @@
 // src/components/FloatingToolbar.jsx
 import React from 'react';
-import { MessageCircle } from 'lucide-react';
+import { ChatCircle } from 'phosphor-react';
 
 const FloatingToolbar = ({ commentMode, onToggleCommentMode, commentCount }) => {
   return (
@@ -16,8 +16,8 @@ const FloatingToolbar = ({ commentMode, onToggleCommentMode, commentCount }) => 
           backgroundColor: commentMode ? '#A34696' : 'white',
         }}
       >
-        <MessageCircle size={18} />
-        
+        <ChatCircle size={18} />
+        <span>Comment Mode</span>
         {commentCount > 0 && (
           <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
             commentMode 
