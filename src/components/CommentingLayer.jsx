@@ -5,6 +5,7 @@ import CommentInput from './CommentInput';
 import FloatingToolbar from './FloatingToolbar';
 import { commentService } from '../utils/commentService';
 import { positionUtils } from '../utils/positionUtils';
+import { getUserColor, getUserInitials } from '../utils/userColors';
 
 export default function CommentingLayer() {
   const [comments, setComments] = useState([]);
@@ -202,10 +203,10 @@ export default function CommentingLayer() {
           />
         ))}
 
-        {/* Pending comment input */}
+        {/* Pending comment input - Figma style white pin with colored circle */}
         {pendingComment && (
           <>
-            {/* Temporary purple pin while typing */}
+            {/* Temporary Figma-style pin while typing */}
             <div
               className="absolute z-50"
               style={{ 
@@ -215,23 +216,31 @@ export default function CommentingLayer() {
               }}
             >
               <div 
-                className="relative shadow-lg"
+                className="relative"
                 style={{
                   width: '32px',
                   height: '32px',
-                  backgroundColor: '#A34696',
-                  border: '2px solid #8B3A7A',
+                  backgroundColor: 'white',
+                  border: '2px solid #E5E7EB',
                   borderRadius: '50% 50% 50% 0',
-                  transform: 'rotate(-45deg)'
+                  transform: 'rotate(-45deg)',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                 }}
               >
+                {/* Colored circle in center with user initial */}
                 <div 
-                  className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white"
+                  className="absolute flex items-center justify-center text-xs font-medium rounded-full"
                   style={{
-                    transform: 'rotate(45deg)'
+                    width: '20px',
+                    height: '20px',
+                    backgroundColor: getUserColor(currentUser).background,
+                    color: getUserColor(currentUser).text,
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%) rotate(45deg)',
                   }}
                 >
-                  {currentUser ? currentUser.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'AN'}
+                  {getUserInitials(currentUser)}
                 </div>
               </div>
             </div>

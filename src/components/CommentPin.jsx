@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Edit3, Trash2, X } from 'lucide-react';
 import { positionUtils } from '../utils/positionUtils';
+import { getUserColor, getUserInitials } from '../utils/userColors';
 
 const CommentPin = ({ 
   comment, 
@@ -18,6 +19,10 @@ const CommentPin = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [editMode, setEditMode] = useState(false);
   const [editText, setEditText] = useState(comment.text);
+
+  // Get user color scheme
+  const userColor = getUserColor(comment.author);
+  const userInitials = getUserInitials(comment.author);
 
   // Calculate pixel position using scale-aware positioning
   const pixelPosition = (() => {
@@ -176,28 +181,6 @@ const CommentPin = ({
 
   const canEdit = comment.author === currentUser;
 
-  // Pin styling based on state
-  const pinStyle = isInputOpen
-    ? {
-        // Adding new comment: purple background while typing
-        backgroundColor: '#A34696',
-        borderColor: '#8B3A7A',
-        textColor: 'white'
-      }
-    : isExpanded
-    ? {
-        // Expanded existing comment: white background with purple border
-        backgroundColor: 'white',
-        borderColor: '#A34696',
-        textColor: '#6B7280'
-      }
-    : {
-        // Default state: white with gray border
-        backgroundColor: 'white',
-        borderColor: '#E5E7EB',
-        textColor: '#6B7280'
-      };
-
   return (
     <div
       className={`absolute cursor-pointer select-none z-50 comment-pin ${isDragging ? 'z-60' : ''}`}
@@ -208,31 +191,37 @@ const CommentPin = ({
       }}
       onMouseDown={handleMouseDown}
     >
-      {/* CSS teardrop speech bubble */}
+      {/* Figma-style pin: White teardrop base with colored circle */}
       <div 
-        className={`relative shadow-lg transition-all duration-200 ${
+        className={`relative transition-all duration-200 ${
           isExpanded ? 'ring-2 ring-opacity-50' : ''
         } ${isDragging ? 'cursor-grabbing scale-110 shadow-xl' : 'cursor-grab hover:scale-105'}`}
         style={{
           width: '32px',
           height: '32px',
-          backgroundColor: pinStyle.backgroundColor,
-          border: `2px solid ${pinStyle.borderColor}`,
+          backgroundColor: 'white',
+          border: isExpanded ? `2px solid ${userColor.background}` : '2px solid #E5E7EB',
           borderRadius: '50% 50% 50% 0',
           transform: 'rotate(-45deg)',
-          '--tw-ring-color': pinStyle.borderColor
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          '--tw-ring-color': userColor.background
         }}
-        title="Click to expand, drag to move"
+        title={`${comment.author}: Click to expand, drag to move`}
       >
-        {/* User initials - counter-rotate and center properly */}
+        {/* Colored circle in center with user initial */}
         <div 
-          className="absolute inset-0 flex items-center justify-center text-xs font-medium"
+          className="absolute flex items-center justify-center text-xs font-medium rounded-full"
           style={{
-            transform: 'rotate(45deg)',
-            color: pinStyle.textColor
+            width: '20px',
+            height: '20px',
+            backgroundColor: userColor.background,
+            color: userColor.text,
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%) rotate(45deg)',
           }}
         >
-          {comment.author ? comment.author.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'AN'}
+          {userInitials}
         </div>
       </div>
 
@@ -251,7 +240,19 @@ const CommentPin = ({
                top: '10px'
              }}>
           <div className="flex justify-between items-start mb-2">
-            <div className="text-sm font-medium text-gray-900">Comment</div>
+            <div className="flex items-center gap-2">
+              {/* User avatar in comment header */}
+              <div 
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
+                style={{
+                  backgroundColor: userColor.background,
+                  color: userColor.text
+                }}
+              >
+                {userInitials}
+              </div>
+              <div className="text-sm font-medium text-gray-900">{comment.author}</div>
+            </div>
             <div className="flex gap-1">
               {canEdit && (
                 <>
