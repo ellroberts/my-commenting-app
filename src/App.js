@@ -1,4 +1,4 @@
-import CommentingLayer from './CommentingLayer';
+import { CommentingLayer } from './components';
 
 function App() {
   return <CommentingLayer />;
