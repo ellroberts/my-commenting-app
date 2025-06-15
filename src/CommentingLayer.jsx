@@ -8,7 +8,71 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Database functions
+// Advanced positioning that tries to account for iframe scaling
+const positionUtils = {
+  // Convert pixel coordinates to percentages
+  pixelsToPercent: (x, y, containerWidth, containerHeight) => ({
+    x: (x / containerWidth) * 100,
+    y: (y / containerHeight) * 100
+  }),
+  
+  // Convert percentages back to pixel coordinates
+  percentToPixels: (xPercent, yPercent, containerWidth, containerHeight) => ({
+    x: (xPercent / 100) * containerWidth,
+    y: (yPercent / 100) * containerHeight
+  }),
+
+  // Scale-aware positioning - try to detect iframe content scaling
+  getIframeScale: (containerWidth, containerHeight) => {
+    // Common design breakpoints - adjust these based on your prototype
+    const designBreakpoints = [
+      { width: 1920, height: 1080, scale: 1.0 },
+      { width: 1440, height: 900, scale: 0.9 },
+      { width: 1024, height: 768, scale: 0.8 },
+      { width: 768, height: 1024, scale: 0.7 }, // tablet
+      { width: 375, height: 667, scale: 0.5 }   // mobile
+    ];
+
+    // Find the closest breakpoint
+    let closestBreakpoint = designBreakpoints[0];
+    let minDifference = Math.abs(containerWidth - closestBreakpoint.width);
+
+    for (const breakpoint of designBreakpoints) {
+      const difference = Math.abs(containerWidth - breakpoint.width);
+      if (difference < minDifference) {
+        minDifference = difference;
+        closestBreakpoint = breakpoint;
+      }
+    }
+
+    return closestBreakpoint.scale;
+  },
+
+  // Scale-aware conversion
+  pixelsToScaledPercent: (x, y, containerWidth, containerHeight) => {
+    const scale = positionUtils.getIframeScale(containerWidth, containerHeight);
+    const scaledX = x / scale;
+    const scaledY = y / scale;
+    
+    return {
+      x: (scaledX / containerWidth) * 100,
+      y: (scaledY / containerHeight) * 100
+    };
+  },
+
+  scaledPercentToPixels: (xPercent, yPercent, containerWidth, containerHeight) => {
+    const scale = positionUtils.getIframeScale(containerWidth, containerHeight);
+    const baseX = (xPercent / 100) * containerWidth;
+    const baseY = (yPercent / 100) * containerHeight;
+    
+    return {
+      x: baseX * scale,
+      y: baseY * scale
+    };
+  }
+};
+
+// Database functions - updated to handle percentage positioning
 const commentService = {
   async getComments() {
     const { data, error } = await supabase
@@ -25,20 +89,24 @@ const commentService = {
       .insert([{
         text: comment.text,
         author: comment.author,
-        x: comment.x,
-        y: comment.y,
+        x_percent: comment.x_percent,
+        y_percent: comment.y_percent,
         prototype: comment.prototype || null
       }])
       .select()
       .single();
     
+    if (error) {
+      console.error('Add comment error:', error);
+    }
+    
     return { data, error };
   },
   
   async updateComment(id, updates) {
-    // Ensure x and y are numbers if they're being updated
-    if (updates.x !== undefined) updates.x = Number(updates.x);
-    if (updates.y !== undefined) updates.y = Number(updates.y);
+    // Ensure percentages are numbers if they're being updated
+    if (updates.x_percent !== undefined) updates.x_percent = Number(updates.x_percent);
+    if (updates.y_percent !== undefined) updates.y_percent = Number(updates.y_percent);
     
     const { data, error } = await supabase
       .from('commenting')
@@ -64,16 +132,35 @@ const commentService = {
   }
 };
 
-const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, isExpanded, onToggleExpand }) => {
+const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, isExpanded, onToggleExpand, containerDimensions }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [editMode, setEditMode] = useState(false);
   const [editText, setEditText] = useState(comment.text);
 
+  // Calculate pixel position using scale-aware positioning
+  const pixelPosition = (() => {
+    // If we have percentage data, use scale-aware conversion
+    if (comment.x_percent !== null && comment.x_percent !== undefined && 
+        comment.y_percent !== null && comment.y_percent !== undefined) {
+      return positionUtils.scaledPercentToPixels(
+        comment.x_percent,
+        comment.y_percent,
+        containerDimensions.width,
+        containerDimensions.height
+      );
+    }
+    // Otherwise, use the old pixel coordinates directly
+    return {
+      x: comment.x || 0,
+      y: comment.y || 0
+    };
+  })();
+
   const handleMouseDown = (e) => {
     if (e.target.closest('.comment-bubble')) return;
     
-    console.log('Pin mousedown detected'); // DEBUG
+    console.log('Pin mousedown detected');
     e.preventDefault();
     e.stopPropagation();
     
@@ -86,13 +173,11 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
       const deltaX = Math.abs(moveEvent.clientX - startX);
       const deltaY = Math.abs(moveEvent.clientY - startY);
       
-      // If mouse moved more than 3px, start dragging
       if (deltaX > 3 || deltaY > 3) {
         hasMoved = true;
-        console.log('Starting drag mode'); // DEBUG
+        console.log('Starting drag mode');
         setIsDragging(true);
         
-        // Add overlay to prevent iframe interference
         const overlay = document.createElement('div');
         overlay.id = 'drag-overlay';
         overlay.style.cssText = `
@@ -107,28 +192,24 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
         `;
         document.body.appendChild(overlay);
         
-        // Get position relative to the container
         const containerRect = document.querySelector('.commenting-container').getBoundingClientRect();
         setDragOffset({
-          x: moveEvent.clientX - containerRect.left - comment.x,
-          y: moveEvent.clientY - containerRect.top - comment.y
+          x: moveEvent.clientX - containerRect.left - pixelPosition.x,
+          y: moveEvent.clientY - containerRect.top - pixelPosition.y
         });
         
-        // Remove this temporary listener
         document.removeEventListener('mousemove', handleMouseMove);
       }
     };
     
     const handleMouseUp = (upEvent) => {
-      console.log('Mouse up - hasMoved:', hasMoved); // DEBUG
+      console.log('Mouse up - hasMoved:', hasMoved);
       
-      // If it was a click without movement, expand the comment
       if (!hasMoved) {
-        console.log('Treating as click - expanding comment'); // DEBUG
+        console.log('Treating as click - expanding comment');
         onToggleExpand(comment.id);
       }
       
-      // Clean up listeners
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -142,14 +223,25 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
       const containerRect = document.querySelector('.commenting-container').getBoundingClientRect();
       const newX = e.clientX - containerRect.left - dragOffset.x;
       const newY = e.clientY - containerRect.top - dragOffset.y;
-      onUpdatePosition(comment.id, { x: newX, y: newY });
+      
+      // Convert to scale-aware percentages before updating
+      const scaledPosition = positionUtils.pixelsToScaledPercent(
+        newX, 
+        newY, 
+        containerDimensions.width, 
+        containerDimensions.height
+      );
+      
+      onUpdatePosition(comment.id, { 
+        x_percent: scaledPosition.x, 
+        y_percent: scaledPosition.y 
+      });
     }
-  }, [isDragging, dragOffset.x, dragOffset.y, comment.id, onUpdatePosition]);
+  }, [isDragging, dragOffset.x, dragOffset.y, comment.id, onUpdatePosition, containerDimensions]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
     
-    // Remove the overlay
     const overlay = document.getElementById('drag-overlay');
     if (overlay) {
       overlay.remove();
@@ -182,8 +274,8 @@ const CommentPin = ({ comment, onEdit, onDelete, onUpdatePosition, currentUser, 
     <div
       className={`absolute cursor-pointer select-none z-50 comment-pin ${isDragging ? 'z-60' : ''}`}
       style={{ 
-        left: comment.x, 
-        top: comment.y,
+        left: pixelPosition.x, 
+        top: pixelPosition.y,
         transform: 'translate(-50%, -50%)'
       }}
       onMouseDown={handleMouseDown}
@@ -373,10 +465,26 @@ export default function CommentingLayer() {
   const [pendingComment, setPendingComment] = useState(null);
   const [expandedComment, setExpandedComment] = useState(null);
   const [currentUser, setCurrentUser] = useState('');
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const containerRef = useRef(null);
 
   // Hardcoded prototype URL - change this for different prototypes
   const PROTOTYPE_URL = 'https://bi-directional-v3.vercel.app/';
+
+  // Track container dimensions
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setContainerDimensions({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   // Get or set user name
   useEffect(() => {
@@ -428,26 +536,48 @@ export default function CommentingLayer() {
   };
 
   const handleSubmitComment = async (text) => {
-    if (!pendingComment) return;
-
-    const newComment = {
-      text,
-      author: currentUser,
-      x: pendingComment.x,
-      y: pendingComment.y,
-      prototype: PROTOTYPE_URL // Store which prototype this comment belongs to
-    };
-    
-    const { data, error } = await commentService.addComment(newComment);
-    if (error) {
-      console.error('Error adding comment:', error);
+    if (!pendingComment || !containerDimensions.width || !containerDimensions.height) {
+      console.error('Missing required data for comment submission');
       return;
     }
-    if (data) {
-      setComments(prev => [...prev, data]);
+
+    try {
+      // Convert pixel coordinates to scale-aware percentages
+      const scaledPosition = positionUtils.pixelsToScaledPercent(
+        pendingComment.x,
+        pendingComment.y,
+        containerDimensions.width,
+        containerDimensions.height
+      );
+
+      console.log('Submitting comment with scaled position:', scaledPosition);
+      console.log('Container dimensions:', containerDimensions);
+      console.log('Detected scale:', positionUtils.getIframeScale(containerDimensions.width, containerDimensions.height));
+
+      const newComment = {
+        text,
+        author: currentUser,
+        x_percent: scaledPosition.x,
+        y_percent: scaledPosition.y,
+        prototype: PROTOTYPE_URL
+      };
+      
+      const { data, error } = await commentService.addComment(newComment);
+      if (error) {
+        console.error('Error adding comment:', error);
+        alert('Failed to add comment. Please try again.');
+        return;
+      }
+      if (data) {
+        console.log('Comment added successfully:', data);
+        setComments(prev => [...prev, data]);
+      }
+      
+      setPendingComment(null);
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      alert('Failed to add comment. Please try again.');
     }
-    
-    setPendingComment(null);
   };
 
   const handleUpdateComment = async (id, newText) => {
@@ -471,8 +601,8 @@ export default function CommentingLayer() {
     setExpandedComment(null);
   };
 
-  const handleUpdatePosition = async (id, position) => {
-    const { data, error } = await commentService.updateComment(id, position);
+  const handleUpdatePosition = async (id, percentPosition) => {
+    const { data, error } = await commentService.updateComment(id, percentPosition);
     if (error) {
       console.error('Error updating position:', error);
       return;
@@ -487,7 +617,7 @@ export default function CommentingLayer() {
   };
 
   return (
-    <div className="relative w-full h-screen bg-gray-50">
+    <div className="relative w-full h-screen bg-gray-50 overflow-hidden">
       {/* Prototype iframe */}
       <div 
         ref={containerRef}
@@ -501,8 +631,8 @@ export default function CommentingLayer() {
           style={{ pointerEvents: commentMode ? 'none' : 'auto' }}
         />
 
-        {/* Comment pins */}
-        {showComments && comments.map(comment => (
+        {/* Comment pins - only render if we have container dimensions */}
+        {showComments && containerDimensions.width > 0 && comments.map(comment => (
           <CommentPin
             key={comment.id}
             comment={comment}
@@ -512,6 +642,7 @@ export default function CommentingLayer() {
             currentUser={currentUser}
             isExpanded={expandedComment === comment.id}
             onToggleExpand={handleToggleExpand}
+            containerDimensions={containerDimensions}
           />
         ))}
 
