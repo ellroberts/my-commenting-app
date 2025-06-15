@@ -1,34 +1,32 @@
 // src/components/FloatingToolbar.jsx
 import React from 'react';
-import { MessageCircle, Eye, EyeOff } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 
-const FloatingToolbar = ({ 
-  commentMode, 
-  onToggleCommentMode, 
-  showComments, 
-  onToggleShowComments, 
-  commentCount 
-}) => {
+const FloatingToolbar = ({ commentMode, onToggleCommentMode, commentCount }) => {
   return (
-    <div className="fixed top-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-2 flex gap-2 z-40">
+    <div className="fixed top-4 right-4 z-40">
       <button
         onClick={onToggleCommentMode}
-        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-          commentMode 
-            ? 'bg-blue-500 text-white' 
-            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg font-medium transition-all duration-200 ${
+          commentMode
+            ? 'text-white hover:opacity-90'
+            : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
         }`}
+        style={{
+          backgroundColor: commentMode ? '#A34696' : 'white',
+        }}
       >
-        <MessageCircle size={16} className="inline mr-1" />
-        Comment Mode
-      </button>
-      
-      <button
-        onClick={onToggleShowComments}
-        className="px-3 py-2 rounded text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors flex items-center gap-1"
-      >
-        {showComments ? <Eye size={16} /> : <EyeOff size={16} />}
-        {showComments ? 'Hide' : 'Show'} ({commentCount})
+        <MessageCircle size={18} />
+        
+        {commentCount > 0 && (
+          <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
+            commentMode 
+              ? 'bg-white bg-opacity-20 text-white' 
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {commentCount}
+          </span>
+        )}
       </button>
     </div>
   );

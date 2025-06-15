@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import CommentPin from './CommentPin';
 import CommentInput from './CommentInput';
 import FloatingToolbar from './FloatingToolbar';
+import UserNameModal from './UserNameModal';
 import { commentService } from '../utils/commentService';
 import { positionUtils } from '../utils/positionUtils';
 import { getUserColor, getUserInitials } from '../utils/userColors';
@@ -10,12 +11,12 @@ import { getUserColor, getUserInitials } from '../utils/userColors';
 export default function CommentingLayer() {
   const [comments, setComments] = useState([]);
   const [commentMode, setCommentMode] = useState(false);
-  const [showComments, setShowComments] = useState(true);
   const [pendingComment, setPendingComment] = useState(null);
   const [expandedComment, setExpandedComment] = useState(null);
   const [currentUser, setCurrentUser] = useState('');
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [activeInputComment, setActiveInputComment] = useState(null);
+  const [showNameModal, setShowNameModal] = useState(false);
   const containerRef = useRef(null);
 
   // Hardcoded prototype URL - change this for different prototypes
@@ -36,15 +37,29 @@ export default function CommentingLayer() {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Get or set user name
+  // Check if user exists on mount (no modal on load)
   useEffect(() => {
-    let user = localStorage.getItem('commentUser');
-    if (!user) {
-      user = prompt('Enter your name for comments:') || 'Anonymous';
-      localStorage.setItem('commentUser', user);
+    const user = localStorage.getItem('commentUser');
+    if (user) {
+      setCurrentUser(user);
     }
-    setCurrentUser(user);
+    // No modal shown here - only when comment mode is activated
   }, []);
+
+  const handleNameSubmit = (name) => {
+    const userName = name || 'Anonymous';
+    localStorage.setItem('commentUser', userName);
+    setCurrentUser(userName);
+    setShowNameModal(false);
+    // After setting name, enable comment mode
+    setCommentMode(true);
+  };
+
+  const handleNameCancel = () => {
+    setShowNameModal(false);
+    // Don't enable comment mode if cancelled
+    setCommentMode(false);
+  };
 
   // Load comments on mount
   useEffect(() => {
@@ -64,6 +79,28 @@ export default function CommentingLayer() {
     };
     loadComments();
   }, []);
+
+  // Handle comment mode toggle - show modal if no user set
+  const handleToggleCommentMode = () => {
+    if (!commentMode) {
+      // Turning comment mode ON
+      const user = localStorage.getItem('commentUser');
+      if (!user) {
+        // No user set - show modal first
+        setShowNameModal(true);
+      } else {
+        // User already set - enable comment mode directly
+        setCurrentUser(user);
+        setCommentMode(true);
+      }
+    } else {
+      // Turning comment mode OFF
+      setCommentMode(false);
+      setPendingComment(null);
+      setExpandedComment(null);
+      setActiveInputComment(null);
+    }
+  };
 
   const handleCanvasClick = (e) => {
     if (!commentMode) return;
@@ -174,6 +211,13 @@ export default function CommentingLayer() {
 
   return (
     <div className="relative w-full h-screen bg-gray-50 overflow-hidden">
+      {/* User Name Modal */}
+      <UserNameModal
+        isOpen={showNameModal}
+        onSubmit={handleNameSubmit}
+        onCancel={handleNameCancel}
+      />
+
       {/* Prototype iframe */}
       <div 
         ref={containerRef}
@@ -187,8 +231,8 @@ export default function CommentingLayer() {
           style={{ pointerEvents: commentMode ? 'none' : 'auto' }}
         />
 
-        {/* Comment pins - only render if we have container dimensions */}
-        {showComments && containerDimensions.width > 0 && comments.map(comment => (
+        {/* Comment pins - only render if comment mode is on and we have container dimensions */}
+        {commentMode && containerDimensions.width > 0 && comments.map(comment => (
           <CommentPin
             key={comment.id}
             comment={comment}
@@ -204,7 +248,7 @@ export default function CommentingLayer() {
         ))}
 
         {/* Pending comment input - Figma style white pin with colored circle */}
-        {pendingComment && (
+        {pendingComment && commentMode && (
           <>
             {/* Temporary Figma-style pin while typing */}
             <div
@@ -262,9 +306,7 @@ export default function CommentingLayer() {
       {/* Floating toolbar */}
       <FloatingToolbar
         commentMode={commentMode}
-        onToggleCommentMode={() => setCommentMode(!commentMode)}
-        showComments={showComments}
-        onToggleShowComments={() => setShowComments(!showComments)}
+        onToggleCommentMode={handleToggleCommentMode}
         commentCount={comments.length}
       />
     </div>
