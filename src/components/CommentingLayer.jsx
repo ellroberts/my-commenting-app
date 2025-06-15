@@ -14,6 +14,7 @@ export default function CommentingLayer() {
   const [expandedComment, setExpandedComment] = useState(null);
   const [currentUser, setCurrentUser] = useState('');
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  const [activeInputComment, setActiveInputComment] = useState(null);
   const containerRef = useRef(null);
 
   // Hardcoded prototype URL - change this for different prototypes
@@ -81,6 +82,7 @@ export default function CommentingLayer() {
     
     setPendingComment({ x, y });
     setExpandedComment(null);
+    setActiveInputComment('pending');
   };
 
   const handleSubmitComment = async (text) => {
@@ -105,6 +107,10 @@ export default function CommentingLayer() {
       const newComment = {
         text,
         author: currentUser,
+        // Include both old pixel coordinates (required for NOT NULL database columns)
+        x: pendingComment.x,
+        y: pendingComment.y,
+        // And new percentage coordinates (for scale-aware positioning)
         x_percent: scaledPosition.x,
         y_percent: scaledPosition.y,
         prototype: PROTOTYPE_URL
@@ -122,6 +128,7 @@ export default function CommentingLayer() {
       }
       
       setPendingComment(null);
+      setActiveInputComment(null);
     } catch (err) {
       console.error('Unexpected error:', err);
       alert('Failed to add comment. Please try again.');
@@ -169,7 +176,7 @@ export default function CommentingLayer() {
       {/* Prototype iframe */}
       <div 
         ref={containerRef}
-        className={`w-full h-full relative commenting-container ${commentMode ? 'cursor-crosshair' : 'cursor-default'}`}
+        className={`w-full h-full relative commenting-container ${commentMode ? 'comment-mode-cursor' : 'cursor-default'}`}
         onClick={handleCanvasClick}
       >
         <iframe
@@ -191,18 +198,55 @@ export default function CommentingLayer() {
             isExpanded={expandedComment === comment.id}
             onToggleExpand={handleToggleExpand}
             containerDimensions={containerDimensions}
+            isInputOpen={activeInputComment === comment.id}
           />
         ))}
 
         {/* Pending comment input */}
         {pendingComment && (
-          <CommentInput
-            x={pendingComment.x}
-            y={pendingComment.y}
-            onSubmit={handleSubmitComment}
-            onCancel={() => setPendingComment(null)}
-            author={currentUser}
-          />
+          <>
+            {/* Temporary purple pin while typing */}
+            <div
+              className="absolute z-50"
+              style={{ 
+                left: pendingComment.x, 
+                top: pendingComment.y,
+                transform: 'translate(-50%, -50%)'
+              }}
+            >
+              <div 
+                className="relative shadow-lg"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  backgroundColor: '#A34696',
+                  border: '2px solid #8B3A7A',
+                  borderRadius: '50% 50% 50% 0',
+                  transform: 'rotate(-45deg)'
+                }}
+              >
+                <div 
+                  className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white"
+                  style={{
+                    transform: 'rotate(45deg)'
+                  }}
+                >
+                  {currentUser ? currentUser.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'AN'}
+                </div>
+              </div>
+            </div>
+            
+            <CommentInput
+              x={pendingComment.x}
+              y={pendingComment.y}
+              onSubmit={handleSubmitComment}
+              onCancel={() => {
+                setPendingComment(null);
+                setActiveInputComment(null);
+              }}
+              author={currentUser}
+            />
+          </>
         )}
       </div>
 

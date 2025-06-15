@@ -11,7 +11,8 @@ const CommentPin = ({
   currentUser, 
   isExpanded, 
   onToggleExpand, 
-  containerDimensions 
+  containerDimensions,
+  isInputOpen 
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -36,6 +37,31 @@ const CommentPin = ({
       y: comment.y || 0
     };
   })();
+
+  // Format date to UK time in the requested format (e.g., "Sun 15 June 19:02")
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    
+    // Convert to UK timezone (Europe/London handles BST/GMT automatically)
+    const ukDate = new Date(date.toLocaleString("en-US", {timeZone: "Europe/London"}));
+    
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const dayName = weekdays[ukDate.getDay()];
+    const dayNum = ukDate.getDate();
+    const monthName = months[ukDate.getMonth()];
+    
+    // Format time in 24-hour format for UK timezone
+    const time = ukDate.toLocaleTimeString('en-GB', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: false,
+      timeZone: 'Europe/London'
+    });
+    
+    return `${dayName} ${dayNum} ${monthName} ${time}`;
+  };
 
   const handleMouseDown = (e) => {
     if (e.target.closest('.comment-bubble')) return;
@@ -150,6 +176,28 @@ const CommentPin = ({
 
   const canEdit = comment.author === currentUser;
 
+  // Pin styling based on state
+  const pinStyle = isInputOpen
+    ? {
+        // Adding new comment: purple background while typing
+        backgroundColor: '#A34696',
+        borderColor: '#8B3A7A',
+        textColor: 'white'
+      }
+    : isExpanded
+    ? {
+        // Expanded existing comment: white background with purple border
+        backgroundColor: 'white',
+        borderColor: '#A34696',
+        textColor: '#6B7280'
+      }
+    : {
+        // Default state: white with gray border
+        backgroundColor: 'white',
+        borderColor: '#E5E7EB',
+        textColor: '#6B7280'
+      };
+
   return (
     <div
       className={`absolute cursor-pointer select-none z-50 comment-pin ${isDragging ? 'z-60' : ''}`}
@@ -160,45 +208,32 @@ const CommentPin = ({
       }}
       onMouseDown={handleMouseDown}
     >
-      {/* Figma-style speech bubble */}
+      {/* CSS teardrop speech bubble */}
       <div 
-        className={`relative bg-blue-500 border border-blue-600 rounded-full shadow-lg hover:bg-blue-600 transition-all duration-200 ${
-          isExpanded ? 'ring-2 ring-blue-300 ring-opacity-50' : ''
+        className={`relative shadow-lg transition-all duration-200 ${
+          isExpanded ? 'ring-2 ring-opacity-50' : ''
         } ${isDragging ? 'cursor-grabbing scale-110 shadow-xl' : 'cursor-grab hover:scale-105'}`}
         style={{
-          width: '24px',
-          height: '24px',
+          width: '32px',
+          height: '32px',
+          backgroundColor: pinStyle.backgroundColor,
+          border: `2px solid ${pinStyle.borderColor}`,
+          borderRadius: '50% 50% 50% 0',
+          transform: 'rotate(-45deg)',
+          '--tw-ring-color': pinStyle.borderColor
         }}
         title="Click to expand, drag to move"
       >
-        {/* Speech bubble icon */}
-        <div className="w-full h-full flex items-center justify-center">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            className="text-white"
-          >
-            <path
-              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-              fill="currentColor"
-            />
-          </svg>
-        </div>
-        
-        {/* Small tail/pointer - positioned to point to the exact click location */}
+        {/* User initials - counter-rotate and center properly */}
         <div 
-          className="absolute bg-blue-500 border-l border-b border-blue-600"
+          className="absolute inset-0 flex items-center justify-center text-xs font-medium"
           style={{
-            width: '6px',
-            height: '6px',
-            bottom: '-3px',
-            left: '50%',
-            transform: 'translateX(-50%) rotate(-45deg)',
-            clipPath: 'polygon(0 0, 0 100%, 100% 100%)'
+            transform: 'rotate(45deg)',
+            color: pinStyle.textColor
           }}
-        />
+        >
+          {comment.author ? comment.author.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'AN'}
+        </div>
       </div>
 
       {/* Hover preview tooltip */}
@@ -208,11 +243,15 @@ const CommentPin = ({
         </div>
       )}
 
-      {/* Expanded comment bubble */}
+      {/* Expanded comment bubble - positioned consistently */}
       {isExpanded && (
-        <div className="absolute left-8 top-0 bg-white border border-gray-200 rounded-lg shadow-xl p-3 min-w-64 max-w-80 comment-bubble">
+        <div className="absolute bg-white border border-gray-200 rounded-lg shadow-xl p-3 min-w-64 max-w-80 comment-bubble"
+             style={{
+               left: '20px',
+               top: '10px'
+             }}>
           <div className="flex justify-between items-start mb-2">
-            <div className="text-sm font-medium text-gray-900">{comment.author}</div>
+            <div className="text-sm font-medium text-gray-900">Comment</div>
             <div className="flex gap-1">
               {canEdit && (
                 <>
@@ -271,7 +310,7 @@ const CommentPin = ({
           )}
           
           <div className="text-xs text-gray-500 mt-2">
-            {new Date(comment.created_at).toLocaleString()}
+            {formatDate(comment.created_at)}
           </div>
         </div>
       )}

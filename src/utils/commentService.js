@@ -7,7 +7,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Database functions - updated to handle percentage positioning
+// Database functions - updated to handle both pixel and percentage positioning
 export const commentService = {
   async getComments() {
     const { data, error } = await supabase
@@ -24,9 +24,15 @@ export const commentService = {
       .insert([{
         text: comment.text,
         author: comment.author,
+        // Include both old pixel coordinates (required for NOT NULL columns)
+        x: comment.x,
+        y: comment.y,
+        // And new percentage coordinates (for scale-aware positioning)
         x_percent: comment.x_percent,
         y_percent: comment.y_percent,
-        prototype: comment.prototype || null
+        prototype: comment.prototype || null,
+        // Explicitly set the current timestamp
+        created_at: new Date().toISOString()
       }])
       .select()
       .single();

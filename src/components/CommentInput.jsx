@@ -1,6 +1,5 @@
 // src/components/CommentInput.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
 
 const CommentInput = ({ x, y, onSubmit, onCancel, author }) => {
   const [text, setText] = useState('');
@@ -33,11 +32,10 @@ const CommentInput = ({ x, y, onSubmit, onCancel, author }) => {
       className="absolute bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-64 max-w-80 z-50 comment-input"
       style={{ 
         left: x + 20, 
-        top: y,
+        top: y + 10,
         transform: y > window.innerHeight - 200 ? 'translateY(-100%)' : 'none'
       }}
     >
-      <div className="text-sm font-medium text-gray-900 mb-2">{author}</div>
       <textarea
         ref={textareaRef}
         value={text}
@@ -57,9 +55,11 @@ const CommentInput = ({ x, y, onSubmit, onCancel, author }) => {
         <button
           onClick={handleSubmit}
           disabled={!text.trim()}
-          className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 text-xs text-white rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: '#A34696'
+          }}
         >
-          <Send size={12} className="inline mr-1" />
           Comment
         </button>
       </div>
