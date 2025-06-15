@@ -183,7 +183,7 @@ const CommentPin = ({
 
   return (
     <div
-      className={`absolute cursor-pointer select-none z-50 comment-pin ${isDragging ? 'z-60' : ''}`}
+      className={`absolute cursor-pointer select-none comment-pin ${isDragging ? 'z-60' : isExpanded ? 'z-[100]' : 'z-50'}`}
       style={{ 
         left: pixelPosition.x, 
         top: pixelPosition.y,
@@ -232,13 +232,16 @@ const CommentPin = ({
         </div>
       )}
 
-      {/* Expanded comment bubble - positioned consistently */}
+      {/* Expanded comment bubble - simple consistent positioning with higher z-index */}
       {isExpanded && (
-        <div className="absolute bg-white border border-gray-200 rounded-lg shadow-xl p-3 min-w-64 max-w-80 comment-bubble"
-             style={{
-               left: '20px',
-               top: '10px'
-             }}>
+        <div 
+          className="absolute bg-white border border-gray-200 rounded-lg shadow-xl p-3 min-w-64 max-w-80 comment-bubble"
+          style={{
+            left: '40px',
+            top: '-20px',
+            zIndex: 1000
+          }}
+        >
           <div className="flex justify-between items-start mb-2">
             <div className="flex items-center gap-2">
               {/* User avatar in comment header */}
