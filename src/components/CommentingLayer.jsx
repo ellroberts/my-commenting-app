@@ -22,6 +22,23 @@ export default function CommentingLayer() {
   // Hardcoded prototype URL - change this for different prototypes
   const PROTOTYPE_URL = 'https://bi-directional-v3.vercel.app/';
 
+  // Post-it note colors - same as in CommentPin for consistency
+  const postItColors = {
+    yellow: { main: '#FCD34D', shadow: '#D97706', fold: '#92400E' },
+    blue: { main: '#93C5FD', shadow: '#2563EB', fold: '#1D4ED8' },
+    green: { main: '#86EFAC', shadow: '#16A34A', fold: '#15803D' },
+    pink: { main: '#F9A8D4', shadow: '#EC4899', fold: '#BE185D' },
+    orange: { main: '#FDBA74', shadow: '#EA580C', fold: '#C2410C' },
+    purple: { main: '#C4B5FD', shadow: '#7C3AED', fold: '#5B21B6' },
+    red: { main: '#FCA5A5', shadow: '#DC2626', fold: '#991B1B' }
+  };
+
+  // Get post-it color for user (same logic as CommentPin)
+  const getPostItColor = (userName) => {
+    const colorKey = Object.keys(postItColors)[Math.abs(userName.charCodeAt(0)) % Object.keys(postItColors).length];
+    return postItColors[colorKey] || postItColors.yellow;
+  };
+
   // Track container dimensions
   useEffect(() => {
     const updateDimensions = () => {
@@ -247,10 +264,10 @@ export default function CommentingLayer() {
           />
         ))}
 
-        {/* Pending comment input - Figma style white pin with colored circle */}
+        {/* Pending comment input - Post-it style pin while typing */}
         {pendingComment && commentMode && (
           <>
-            {/* Temporary Figma-style pin while typing */}
+            {/* Post-it pin for pending comment - using consistent colors */}
             <div
               className="absolute z-50"
               style={{ 
@@ -260,32 +277,33 @@ export default function CommentingLayer() {
               }}
             >
               <div 
-                className="relative"
+                className="relative transition-all duration-200"
                 style={{
-                  width: '32px',
-                  height: '32px',
-                  backgroundColor: 'white',
-                  border: '2px solid #E5E7EB',
-                  borderRadius: '50% 50% 50% 0',
-                  transform: 'rotate(-45deg)',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                  filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15))'
                 }}
               >
-                {/* Colored circle in center with user initial */}
-                <div 
-                  className="absolute flex items-center justify-center text-xs font-medium rounded-full"
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    backgroundColor: getUserColor(currentUser).background,
-                    color: getUserColor(currentUser).text,
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%) rotate(45deg)',
-                  }}
-                >
-                  {getUserInitials(currentUser)}
-                </div>
+                <svg width="40" height="40" viewBox="0 0 40 40">
+                  {/* Use post-it colors for consistency */}
+                  <path 
+                    d="M4 2 L38 2 Q38 2 38 4 L38 28 L28 38 Q2 38 2 36 L2 4 Q2 2 4 2 Z"
+                    fill={getPostItColor(currentUser).main}
+                  />
+                  <path 
+                    d="M28 28 L38 28 L28 38 Z"
+                    fill={getPostItColor(currentUser).fold}
+                  />
+                  <text 
+                    x="20" 
+                    y="23" 
+                    textAnchor="middle" 
+                    fontSize="12.5" 
+                    fontWeight="700"
+                    fill={getPostItColor(currentUser).fold}
+                    fontFamily="system-ui, -apple-system, sans-serif"
+                  >
+                    {getUserInitials(currentUser)}
+                  </text>
+                </svg>
               </div>
             </div>
             
