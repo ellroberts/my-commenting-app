@@ -43,6 +43,24 @@ const CommentPin = ({
     };
   })();
 
+  // Post-it note colors - dynamic selection based on user
+  const postItColors = {
+    yellow: { main: '#FCD34D', shadow: '#D97706', fold: '#92400E' },
+    blue: { main: '#93C5FD', shadow: '#2563EB', fold: '#1D4ED8' },
+    green: { main: '#86EFAC', shadow: '#16A34A', fold: '#15803D' },
+    pink: { main: '#F9A8D4', shadow: '#EC4899', fold: '#BE185D' },
+    orange: { main: '#FDBA74', shadow: '#EA580C', fold: '#C2410C' },
+    purple: { main: '#C4B5FD', shadow: '#7C3AED', fold: '#5B21B6' },
+    red: { main: '#FCA5A5', shadow: '#DC2626', fold: '#991B1B' }
+  };
+
+  // Select color based on user name for consistency
+  const colorKey = Object.keys(postItColors)[Math.abs(comment.author.charCodeAt(0)) % Object.keys(postItColors).length];
+  const postItColor = postItColors[colorKey] || postItColors.yellow;
+
+  // Pin size
+  const pinSize = 40;
+
   // Format date to UK time in the requested format (e.g., "Sun 15 June 19:02")
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -191,131 +209,147 @@ const CommentPin = ({
       }}
       onMouseDown={handleMouseDown}
     >
-      {/* Figma-style pin: White teardrop base with colored circle */}
+      {/* Post-it Note SVG Pin */}
       <div 
         className={`relative transition-all duration-200 ${
-          isExpanded ? 'ring-2 ring-opacity-50' : ''
-        } ${isDragging ? 'cursor-grabbing scale-110 shadow-xl' : 'cursor-grab hover:scale-105'}`}
+          isDragging ? 'cursor-grabbing scale-110' : 'cursor-grab hover:scale-105'
+        }`}
         style={{
-          width: '32px',
-          height: '32px',
-          backgroundColor: 'white',
-          border: isExpanded ? `2px solid ${userColor.background}` : '2px solid #E5E7EB',
-          borderRadius: '50% 50% 50% 0',
-          transform: 'rotate(-45deg)',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          '--tw-ring-color': userColor.background
+          filter: isDragging ? 'drop-shadow(0 8px 20px rgba(0, 0, 0, 0.3))' : 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15))'
         }}
         title={`${comment.author}: Click to expand, drag to move`}
       >
-        {/* Colored circle in center with user initial */}
-        <div 
-          className="absolute flex items-center justify-center text-xs font-medium rounded-full"
-          style={{
-            width: '20px',
-            height: '20px',
-            backgroundColor: userColor.background,
-            color: userColor.text,
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%) rotate(45deg)',
-          }}
+        <svg 
+          width={pinSize} 
+          height={pinSize} 
+          viewBox={`0 0 ${pinSize} ${pinSize}`}
+          className="transition-all duration-200"
         >
-          {userInitials}
-        </div>
+          {/* Main post-it note body with rounded corners */}
+          <path 
+            d={`M4 2 L${pinSize-2} 2 Q${pinSize-2} 2 ${pinSize-2} 4 L${pinSize-2} ${pinSize-12} L${pinSize-12} ${pinSize-2} Q2 ${pinSize-2} 2 ${pinSize-4} L2 4 Q2 2 4 2 Z`}
+            fill={postItColor.main}
+          />
+          
+          {/* Folded corner */}
+          <path 
+            d={`M${pinSize-12} ${pinSize-12} L${pinSize-2} ${pinSize-12} L${pinSize-12} ${pinSize-2} Z`}
+            fill={postItColor.fold}
+          />
+          
+          {/* User initial text directly on post-it */}
+          <text 
+            x={pinSize/2} 
+            y={pinSize/2 + 3} 
+            textAnchor="middle" 
+            fontSize={pinSize/3.2} 
+            fontWeight="700"
+            fill={postItColor.fold}
+            fontFamily="system-ui, -apple-system, sans-serif"
+          >
+            {userInitials}
+          </text>
+        </svg>
       </div>
 
       {/* Hover preview tooltip */}
       {!isExpanded && (
-        <div className="absolute left-8 top-0 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 hover:opacity-100 transition-opacity pointer-events-none z-10">
+        <div className="absolute left-12 top-0 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 hover:opacity-100 transition-opacity pointer-events-none z-10">
           {comment.author}: {comment.text.substring(0, 50)}{comment.text.length > 50 ? '...' : ''}
         </div>
       )}
 
-      {/* Expanded comment bubble - simple consistent positioning with higher z-index */}
+      {/* Expanded comment bubble - positioned relative to pin container */}
       {isExpanded && (
         <div 
-          className="absolute bg-white border border-gray-200 rounded-lg shadow-xl p-3 min-w-64 max-w-80 comment-bubble"
+          className="absolute bg-white rounded-lg shadow-xl comment-bubble"
           style={{
-            left: '40px',
-            top: '-20px',
-            zIndex: 1000
+            left: '45px', // Adjusted from original 50px to move slightly closer to pin
+            top: '2px', // Keep same vertical alignment
+            width: '320px', // Fixed width to match input boxes
+            zIndex: 1000,
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08)'
           }}
         >
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex items-center gap-2">
-              {/* User avatar in comment header */}
-              <div 
-                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
-                style={{
-                  backgroundColor: userColor.background,
-                  color: userColor.text
-                }}
-              >
-                {userInitials}
-              </div>
-              <div className="text-sm font-medium text-gray-900">{comment.author}</div>
-            </div>
+          {/* Header with author name and actions - exact match to input boxes */}
+          <div className="flex justify-between items-center px-4 pt-4 pb-2">
+            <div className="text-sm font-semibold text-gray-900">{comment.author}</div>
             <div className="flex gap-1">
               {canEdit && (
                 <>
                   <button 
                     onClick={handleEdit}
-                    className="p-1 hover:bg-gray-100 rounded"
+                    className="p-1 hover:bg-gray-100 rounded transition-colors"
                     title="Edit comment"
                   >
-                    <PencilSimple size={14} />
+                    <PencilSimple size={16} />
                   </button>
                   <button 
                     onClick={() => onDelete(comment.id)}
-                    className="p-1 hover:bg-gray-100 rounded text-red-600"
+                    className="p-1 hover:bg-red-50 rounded text-red-600 transition-colors"
                     title="Delete comment"
                   >
-                    <Trash size={14} />
+                    <Trash size={16} />
                   </button>
                 </>
               )}
               <button 
                 onClick={() => onToggleExpand(comment.id)}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
                 title="Close comment"
               >
-                <X size={14} />
+                <X size={16} />
               </button>
             </div>
           </div>
           
           {editMode ? (
-            <div className="space-y-2">
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1 resize-none"
-                rows={3}
-                autoFocus
-              />
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => setEditMode(false)}
-                  className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
+            <div>
+              {/* Edit mode with gray background input */}
+              <div className="px-4 pb-2">
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full text-sm border-0 rounded-lg px-3 py-2 resize-none bg-gray-100 focus:bg-gray-50 focus:outline-none transition-all"
+                  style={{ 
+                    minHeight: '36px',
+                    height: 'auto',
+                    overflow: 'hidden'
+                  }}
+                  onInput={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
+                  autoFocus
+                />
+              </div>
+              
+              {/* Bottom section with submit button */}
+              <div className="flex justify-end px-4 pb-4">
                 <button
                   onClick={handleEdit}
-                  className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                  className="p-2 rounded-lg transition-all hover:opacity-90"
+                  style={{ backgroundColor: '#A34696' }}
                 >
-                  Save
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+                  </svg>
                 </button>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-gray-700">{comment.text}</div>
+            <div>
+              {/* View mode - just text and timestamp */}
+              <div className="px-4 pb-2">
+                <div className="text-sm text-gray-700 leading-relaxed">{comment.text}</div>
+              </div>
+              
+              <div className="px-4 pb-4 pt-2 border-t border-gray-100">
+                <div className="text-xs text-gray-500">{formatDate(comment.created_at)}</div>
+              </div>
+            </div>
           )}
-          
-          <div className="text-xs text-gray-500 mt-2">
-            {formatDate(comment.created_at)}
-          </div>
         </div>
       )}
     </div>
